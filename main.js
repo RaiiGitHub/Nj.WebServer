@@ -11,8 +11,8 @@ const websvr = require('./WebSvr.js');
 console.log(printf('hello,world!%s', 'Node.js'));
 
 const mvplot = md.use(vis).render(content(), { d3, d3node })
-
-websvr.start(function (req, res) {
+svr = new websvr()
+svr.start(function (req, res) {
   res.writeHead(200, { "Content-Type": "text/html" });
   res.write(mvplot+csvplot());
   res.end();
