@@ -8,7 +8,8 @@
 
 console.time('[WebSvr][Start]');
 
-var libHttp = require('http');
+var express = require('express');
+// var libHttp = require('http');
 var libUrl = require('url');
 var libFs = require("fs");
 var libPath = require("path");
@@ -19,6 +20,7 @@ var multiparty = require('multiparty');
 let { inspect, promisify } = require('util');
 let stat = promisify(libFs.stat);
 let readdir = promisify(libFs.readdir);
+let app = express()
 
 function list() { //html list(file list)
     let tmpl = libFs.readFileSync(libPath.resolve("WebRoot", 'list.html'), 'utf8');
@@ -125,7 +127,10 @@ class Server {
     }
     start(dynamicPageHanlder) {
         var _list = this.list;
-        var webSvr = libHttp.createServer(async function (req, res) {
+        app.use(express.static('public', {maxAge:12*60*60*24*30}));
+        
+       // var webSvr = libHttp.createServer(async function (req, res) {
+        app.all('*', async function (req, res, next) {
             var reqUrl = req.url;
             console.log("visit headers.user-agent =>", req.headers["user-agent"]);
             console.log("visit url=>%s", reqUrl);
@@ -174,32 +179,33 @@ class Server {
                     else {
                         //static web contents.
                         console.log("visit a stream object.");
-                        libFs.exists(filePath, function (exists) {
-                            if (exists) {
-                                res.writeHead(200, { "Content-Type": funGetContentType(filePath) });
-                                var stream = libFs.createReadStream(filePath, { flags: "r", encoding: null });
-                                stream.on("error", function () {
-                                    res.writeHead(404);
-                                    res.end("<h1>404 Read Error</h1>");
-                                });
-                                stream.pipe(res);
-                            }
-                            else {
-                                res.writeHead(404, { "Content-Type": "text/html" });
-                                res.end("<h1>404 Not Found</h1>");
-                            }
-                        });
+                        try {
+                            libFs.accessSync(filePath);
+                            res.writeHead(200, { "Content-Type": funGetContentType(filePath) });
+                            var stream = libFs.createReadStream(filePath, { flags: "r", encoding: null });
+                            stream.on("error", function () {
+                                res.writeHead(404);
+                                res.end("<h1>404 Read Error</h1>");
+                            });
+                            stream.pipe(res);
+                        } catch (e) {
+                            res.writeHead(404, { "Content-Type": "text/html" });
+                            res.end("<h1>404 Not Found</h1>");
+                        }
                     }
                 }
                 catch (e) {
                     console.log(inspect(e)); //inspect把一个toString后的对象仍然能展开显示
                 }
             }
+           //to the next controller.
+           next();
         });
-        webSvr.on("error", function (error) {
-            console.log(error);
-        });
-        webSvr.listen(80, function () {
+        // webSvr.on("error", function (error) {
+        //     console.log(error);
+        // });
+       // webSvr.listen(80, function () {
+        app.listen(80, function () {
             console.log('[WebSvr][Start] running at http://127.0.0.1:80/');
             console.timeEnd('[WebSvr][Start]');
         });
